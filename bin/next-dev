@@ -1,0 +1,67 @@
+#!/usr/bin/env node
+import 'source-map-support/register'
+import { resolve, join } from 'path'
+import parseArgs from 'minimist'
+import { exists } from 'mz/fs'
+import Server from '../server'
+
+const argv = parseArgs(process.argv.slice(2), {
+  alias: {
+    h: 'help',
+    p: 'port'
+  },
+  boolean: ['h'],
+  default: {
+    p: 3000
+  }
+})
+
+if (argv.help) {
+  console.log(`
+    Description
+      Starts the application in development mode (hot-code reloading, error
+      reporting, etc)
+
+    Usage
+      $ next dev <dir> -p <port number>
+
+    <dir> represents where the compiled .next folder should go.
+    If no directory is provided, .next will be created in the current directory
+
+    Options
+      --port, -p      A port number on which to start the application
+      --help, -p      Displays this message
+  `)
+  process.exit(0)
+}
+
+const dir = resolve(argv._[0] || '.')
+
+// Check if pages dir exists and warn if not
+exists(dir)
+.then(async () => {
+  if (!(await exists(join(dir, 'pages')))) {
+    if (await exists(join(dir, '..', 'pages'))) {
+      console.error('> No `pages` directory found. Did you mean to run `next` in the parent (`../`) directory?')
+    } else {
+      console.error('> Couldn\'t find a `pages` directory. Please create one under the project root')
+    }
+    process.exit(1)
+  }
+})
+.catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
+
+const srv = new Server({ dir, dev: true })
+srv.start(argv.port)
+.then(async () => {
+  if (!process.env.NOW) {
+    console.log(`> Ready on http://localhost:${argv.port}`)
+  }
+})
+.catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
